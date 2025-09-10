@@ -1,0 +1,8 @@
+.git
+.gitignore
+.idea
+__pycache__
+.env
+frontend/node_modules
+es_data
+qdrant_storage_video_retrieval
