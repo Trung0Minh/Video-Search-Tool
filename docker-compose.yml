@@ -7,16 +7,14 @@ services:
     volumes:
       - ./qdrant_storage_video_retrieval:/qdrant/storage
 
-  # elasticsearch:
-  #   image: elasticsearch:8.11.1
-  #   ports:
-  #     - "9200:9200"
-  #     - "9300:9300"
-  #   environment:
-  #     - discovery.type=single-node
-  #     - xpack.security.enabled=false
-  #   volumes:
-  #     - ./es_data:/usr/share/elasticsearch/data
+  indexer:
+    build: .
+    command: ["python", "backend/app/builder/run_all.py"]
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    depends_on:
+      - qdrant
 
   backend:
     build: .
@@ -26,5 +24,12 @@ services:
       - ./backend:/app/backend
       - ./data:/app/data
     depends_on:
-      - qdrant
-      #- elasticsearch
+      indexer:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"

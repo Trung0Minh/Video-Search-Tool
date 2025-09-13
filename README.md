@@ -64,6 +64,7 @@ Before you begin, ensure you have the following installed:
     ├── objects/
     └── video/
     ```
+    Or if you are storing data online (HuggingFace just like me). Go to `backend/config.py` for settings. 
 
 2.  **Run the data loading and indexing script:**
 
