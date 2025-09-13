@@ -3,14 +3,15 @@ import type { SearchResultItem } from '../App';
 import ResultCard from './ResultCard';
 
 interface GroupedResultCardProps {
-  video_id: string;
+  video: string;
   items: SearchResultItem[];
   handlers: {
-    onVideoView: (videoUrl: string, videoId: string, keyframeId: string) => void;
-    onKeyframeView: (videoId: string) => void;
-    onPopulateIdFields: (videoId: string, keyframeIndex: string) => void;
-    onDirectAddToSubmission: (videoId: string, keyframeIndex: number) => void;
+    onVideoView: (videoUrl: string, video: string, frame: string, frame_index: number) => void;
+    onKeyframeView: (video: string) => void;
+    onPopulateIdFields: (video: string, frame_index: string) => void;
+    onDirectAddToSubmission: (video: string, frame_index: number) => void;
     onImageZoom: (imageUrl: string) => void;
+    onExcludeVideo: (video: string) => void;
   };
   gridCols: Accessor<number>;
 }
@@ -18,7 +19,14 @@ interface GroupedResultCardProps {
 const GroupedResultCard: Component<GroupedResultCardProps> = (props) => {
   return (
     <div class="border rounded-lg p-4">
-      <h3 class="text-lg font-bold mb-2">{props.video_id}</h3>
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-lg font-bold">{props.video}</h3>
+        <button 
+          class="p-2 text-xs bg-red-600 text-white rounded hover:bg-red-700" 
+          onClick={() => props.handlers.onExcludeVideo(props.video)} title="Exclude Video">
+          ❌
+        </button>
+      </div>
       <div 
         class="grid gap-4"
         style={{ "grid-template-columns": `repeat(${props.gridCols()}, minmax(0, 1fr))` }}

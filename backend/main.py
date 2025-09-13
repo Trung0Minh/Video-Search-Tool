@@ -1,8 +1,6 @@
-# File: backend/main.py - CORRECTED VERSION
-
 import uvicorn
 from app.config import settings
-from app.web_server import app # Keep this import for type hinting and direct use if needed elsewhere
+from app.web_server import app
 
 if __name__ == "__main__":
     uvicorn.run(

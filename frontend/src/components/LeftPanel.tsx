@@ -1,26 +1,37 @@
 import { Component, Accessor, Setter, For, Show } from 'solid-js';
 import type { QueryItem } from '../App';
+import PackFilter from './PackFilter';
+import VideoFilter from './VideoFilter';
+import ExcludedVideos from './ExcludedVideos';
+import VietnameseTextFilter from './TextFilter';
 
 interface LeftPanelProps {
   queries: QueryItem[];
   onAddQuery: () => void;
   onRemoveQuery: (id: number) => void;
   onUpdateQuery: (id: number, text: string) => void;
-  retriever: Accessor<string>;
-  setRetriever: Setter<string>;
   topKPerQuery: Accessor<number>;
   setTopKPerQuery: Setter<number>;
   keywordFilter: Accessor<string>;
   setKeywordFilter: Setter<string>;
-  objectFilter: Accessor<string>;
-  setObjectFilter: Setter<string>;
+  vietnameseQuery: Accessor<string>;
+  setVietnameseQuery: Setter<string>;
+  selectedObjects: Accessor<string[]>;
+  setSelectedObjects: Setter<string[]>;
+  selectedPacks: Accessor<string[]>;
+  setSelectedPacks: Setter<string[]>;
+  selectedVideos: Accessor<string[]>;
+  setSelectedVideos: Setter<string[]>;
+  excludedVideos: Accessor<string[]>;
+  setExcludedVideos: Setter<string[]>;
   onSearch: () => void;
   isLoading: Accessor<boolean>;
   submissionFilename: Accessor<string>;
   setSubmissionFilename: Setter<string>;
   submissionContent: Accessor<string>;
   setSubmissionContent: Setter<string>;
-  onDownloadCsv: () => void;
+  onSaveCsv: () => void;
+  API_BASE_URL: string;
 }
 
 const LeftPanel: Component<LeftPanelProps> = (props) => {
@@ -62,27 +73,31 @@ const LeftPanel: Component<LeftPanelProps> = (props) => {
               + Add Query
             </button>
           </div>
-          <div>
-            <label for="retriever" class="block text-sm font-medium text-gray-700">Retriever</label>
-            <select id="retriever" class="mt-1 w-full p-2 border rounded shadow-sm" value={props.retriever()} onInput={(e) => props.setRetriever(e.currentTarget.value)} >
-              <option value="clip">CLIP (Semantic)</option>
-              <option value="es">Elasticsearch (Text)</option>
-            </select>
-          </div>
+          
           <div>
             <label for="top-k-per-query" class="block text-sm font-medium text-gray-700">Max Results per Query</label>
             <input type="number" id="top-k-per-query" min="1" max="50" class="mt-1 w-full p-2 border rounded shadow-sm" value={props.topKPerQuery()} onInput={(e) => props.setTopKPerQuery(parseInt(e.currentTarget.value, 10))} />
           </div>
           <hr />
-          <h3 class="text-md font-semibold text-gray-600">Filters</h3>
-          <div>
-            <label for="filter-keyword" class="block text-sm font-medium text-gray-700">Keywords</label>
-            <input type="text" id="filter-keyword" placeholder="e.g., park, daytime" class="mt-1 w-full p-2 border rounded shadow-sm" value={props.keywordFilter()} onInput={(e) => props.setKeywordFilter(e.currentTarget.value)} />
-          </div>
-          <div>
-            <label for="filter-object" class="block text-sm font-medium text-gray-700">Objects</label>
-            <input type="text" id="filter-object" placeholder="e.g., dog>0.8, cat" class="mt-1 w-full p-2 border rounded shadow-sm" value={props.objectFilter()} onInput={(e) => props.setObjectFilter(e.currentTarget.value)} />
-          </div>
+          <VietnameseTextFilter 
+            vietnameseQuery={props.vietnameseQuery}
+            setVietnameseQuery={props.setVietnameseQuery}
+          />
+          <PackFilter 
+            selectedPacks={props.selectedPacks}
+            setSelectedPacks={props.setSelectedPacks}
+            API_BASE_URL={props.API_BASE_URL}
+          />
+          <VideoFilter
+            selectedPacks={props.selectedPacks}
+            selectedVideos={props.selectedVideos}
+            setSelectedVideos={props.setSelectedVideos}
+            API_BASE_URL={props.API_BASE_URL}
+          />
+          <ExcludedVideos
+            excludedVideos={props.excludedVideos}
+            setExcludedVideos={props.setExcludedVideos}
+          />
         </div>
 
         <hr class="my-6" />
@@ -94,7 +109,17 @@ const LeftPanel: Component<LeftPanelProps> = (props) => {
             <input type="text" id="submission-filename" placeholder="e.g., interesting_frames" class="mt-1 w-full p-2 border rounded shadow-sm" value={props.submissionFilename()} onInput={(e) => props.setSubmissionFilename(e.currentTarget.value)} />
           </div>
           <div>
+            <div class="flex items-center justify-between">
             <label for="submission-content" class="block text-sm font-medium text-gray-700">Content</label>
+            <Show when={props.submissionContent()}>
+              <button 
+                class="text-xs text-blue-500 hover:text-blue-700"
+                onClick={() => props.setSubmissionContent('')}
+              >
+                Clear All
+              </button>
+            </Show>
+          </div>
             <textarea id="submission-content" rows="8" class="mt-1 w-full p-2 border rounded shadow-sm font-mono text-xs" value={props.submissionContent()} onInput={(e) => props.setSubmissionContent(e.currentTarget.value)} />
           </div>
         </div>
@@ -104,8 +129,8 @@ const LeftPanel: Component<LeftPanelProps> = (props) => {
         <button class="w-full p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400" onClick={props.onSearch} disabled={props.isLoading()} >
           🔍 {props.isLoading() ? 'Searching...' : 'Search'}
         </button>
-        <button class="w-full p-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" onClick={props.onDownloadCsv} title="Download CSV">
-          ⬇️ Download CSV
+        <button class="w-full p-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" onClick={props.onSaveCsv} title="Save CSV to Server">
+          💾 Save to Server
         </button>
       </div>
     </div>

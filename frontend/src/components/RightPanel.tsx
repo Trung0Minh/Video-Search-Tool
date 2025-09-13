@@ -1,4 +1,4 @@
-import { For, Show, type Component, type Accessor } from 'solid-js';
+import { For, Show, type Component, type Accessor, createMemo } from 'solid-js';
 import ResultCard from './ResultCard';
 import GroupedResultCard from './GroupedResultCard';
 import TemporalResultCard from './TemporalResultCard';
@@ -7,32 +7,42 @@ import type { SearchResultItem, TemporalQueryResult } from '../App';
 interface RightPanelProps {
   images: Accessor<SearchResultItem[]>;
   temporalResults: Accessor<TemporalQueryResult[]>;
+  excludedVideos: Accessor<string[]>;
   isTemporalResult: Accessor<boolean>;
   isLoading: Accessor<boolean>;
-  onVideoView: (videoUrl: string, videoId: string, keyframeId: string) => void;
-  onKeyframeView: (videoId: string) => void;
-  onPopulateIdFields: (videoId: string, keyframeIndex: string) => void;
-  onDirectAddToSubmission: (videoId: string, keyframeIndex: number) => void;
+  onVideoView: (videoUrl: string, video: string, frame: string, frame_index: number) => void;
+  onKeyframeView: (video: string) => void;
+  onPopulateIdFields: (video: string, frame_index: string) => void;
+  onDirectAddToSubmission: (video: string, frame_index: number) => void;
   onImageZoom: (imageUrl: string) => void;
+  onExcludeVideo: (video: string) => void;
   gridCols: Accessor<number>;
   groupByVideo: Accessor<boolean>;
 }
 
 const RightPanel: Component<RightPanelProps> = (props) => {
-  const groupedImages = () => {
+  const filteredImages = createMemo(() => 
+    props.images().filter(item => !props.excludedVideos().includes(item.video))
+  );
+
+  const filteredTemporalResults = createMemo(() => 
+    props.temporalResults().filter(item => !props.excludedVideos().includes(item.video))
+  );
+
+  const groupedImages = createMemo(() => {
     if (!props.groupByVideo()) return null;
     const groups: { [key: string]: SearchResultItem[] } = {};
-    props.images().forEach(item => {
-      if (!groups[item.video_id]) {
-        groups[item.video_id] = [];
+    filteredImages().forEach(item => {
+      if (!groups[item.video]) {
+        groups[item.video] = [];
       }
-      groups[item.video_id].push(item);
+      groups[item.video].push(item);
     });
     return Object.entries(groups);
-  };
+  });
 
   const hasResults = () => {
-    return props.isTemporalResult() ? props.temporalResults().length > 0 : props.images().length > 0;
+    return props.isTemporalResult() ? filteredTemporalResults().length > 0 : filteredImages().length > 0;
   };
 
   return (
@@ -51,7 +61,7 @@ const RightPanel: Component<RightPanelProps> = (props) => {
         {/* Temporal Results View */}
         <Show when={props.isTemporalResult()}>
           <div class="space-y-8">
-            <For each={props.temporalResults()}>
+            <For each={filteredTemporalResults()}>
               {(videoResult) => (
                 <TemporalResultCard
                   result={videoResult}
@@ -68,8 +78,8 @@ const RightPanel: Component<RightPanelProps> = (props) => {
           <Show when={props.groupByVideo()}>
             <div class="space-y-4">
               <For each={groupedImages()}>
-                {([video_id, items]) => (
-                  <GroupedResultCard video_id={video_id} items={items} handlers={props} gridCols={props.gridCols} />
+                {([video, items]) => (
+                  <GroupedResultCard video={video} items={items} handlers={props} gridCols={props.gridCols} />
                 )}
               </For>
             </div>
@@ -79,7 +89,7 @@ const RightPanel: Component<RightPanelProps> = (props) => {
               class="grid gap-4"
               style={{ "grid-template-columns": `repeat(${props.gridCols()}, minmax(0, 1fr))` }}
             >
-              <For each={props.images()}>
+              <For each={filteredImages()}>
                 {(item) => (
                   <ResultCard
                     item={item}

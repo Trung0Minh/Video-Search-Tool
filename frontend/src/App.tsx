@@ -1,4 +1,4 @@
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createSignal, Show} from 'solid-js';
 import { createStore } from 'solid-js/store';
 import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
@@ -9,21 +9,21 @@ import TopPanel from './components/TopPanel';
 import ImageModal from './components/ImageModal';
 
 export interface SearchResultItem {
-  video_id: string;
-  keyframe_id: string;
-  keyframe_index: number;
+  video: string;
+  frame: string;
+  frame_index: number;
   image_url: string;
   video_url: string;
 }
 
 export interface TemporalQueryResult {
-  video_id: string;
+  video: string;
   video_url: string;
   query_results: {
     query: string;
     keyframes: {
-      keyframe_id: string;
-      keyframe_index: number;
+      frame: string;
+      frame_index: number;
       image_url: string;
     }[];
   }[];
@@ -38,15 +38,18 @@ let queryIdCounter = 1;
 
 const App: Component = () => {
   const [queries, setQueries] = createStore<QueryItem[]>([{ id: queryIdCounter++, text: '' }]);
-  const [retriever, setRetriever] = createSignal('clip');
   const [topKPerQuery, setTopKPerQuery] = createSignal(10);
+  const [totalResults, setTotalResults] = createSignal(100);
   const [keywordFilter, setKeywordFilter] = createSignal('');
-  const [objectFilter, setObjectFilter] = createSignal('');
+  const [vietnameseQuery, setVietnameseQuery] = createSignal('');
+  const [selectedObjects, setSelectedObjects] = createSignal<string[]>([]);
+  const [selectedPacks, setSelectedPacks] = createSignal<string[]>([]);
+  const [selectedVideos, setSelectedVideos] = createSignal<string[]>([]);
+  const [excludedVideos, setExcludedVideos] = createSignal<string[]>([]);
   const [results, setResults] = createSignal<SearchResultItem[]>([]);
   const [temporalResults, setTemporalResults] = createSignal<TemporalQueryResult[]>([]);
   const [isTemporalResult, setIsTemporalResult] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
-  const [modalStack, setModalStack] = createSignal<any[]>([]);
   const [displayVideoId, setDisplayVideoId] = createSignal('');
   const [displayKeyframeId, setDisplayKeyframeId] = createSignal('');
   const [keyframeNote, setKeyframeNote] = createSignal('');
@@ -62,11 +65,24 @@ const App: Component = () => {
   const [groupByVideo, setGroupByVideo] = createSignal(false);
   const [leftPanelWidth, setLeftPanelWidth] = createSignal(300);
 
-  const API_BASE_URL = "http://localhost:8000";
+  const [imageModalUrl, setImageModalUrl] = createSignal<string | null>(null);
+  const [videoModalProps, setVideoModalProps] = createSignal<any | null>(null);
+  const [keyframeModalProps, setKeyframeModalProps] = createSignal<any | null>(null);
+
+  const API_BASE_URL = "";
+  const KEYFRAME_BASE_URL = "https://huggingface.co/datasets/ChungDat/hcm-aic2025-keyframes/resolve/main";
 
   const addQuery = () => setQueries(queries.length, { id: queryIdCounter++, text: '' });
   const removeQuery = (id: number) => setQueries(q => q.filter(item => item.id !== id));
   const updateQuery = (id: number, text: string) => setQueries(q => q.id === id, 'text', text);
+
+  const handleExcludeVideo = (video: string) => {
+    if (!excludedVideos().includes(video)) {
+      setExcludedVideos([...excludedVideos(), video]);
+    }
+  };
+
+  
 
   let startX: number;
   let startWidth: number;
@@ -94,34 +110,46 @@ const App: Component = () => {
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
-  const openModal = (content: any) => {
-    setModalStack([...modalStack(), content]);
-  };
+  const openImageModal = (imageUrl: string) => setImageModalUrl(imageUrl);
+  const closeImageModal = () => setImageModalUrl(null);
 
-  const closeModal = () => {
-    setModalStack(modalStack().slice(0, -1));
+  const openVideoModal = async (video: string, frame_index: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video_details/${video}`);
+      if (!response.ok) throw new Error('Failed to fetch video details');
+      const data = await response.json();
+      
+      setModalVideoId(video);
+      setModalKeyframeId(frame_index.toString());
+      setModalNote('');
+      setVideoModalProps({
+        watchUrl: data.watch_url, 
+        fps: data.fps,
+        videoId: video, 
+        keyframeIndex: frame_index 
+      });
+    } catch (error) {
+      console.error("Error opening video modal:", error);
+      alert("Could not load video. See console for details.");
+    }
   };
-
-  const openImageModal = (imageUrl: string) => openModal({ type: 'image', url: imageUrl });
-
-  const openVideoModal = (videoUrl: string, videoId: string, keyframeId: string) => {
-    setModalVideoId(videoId);
-    setModalKeyframeId(keyframeId);
-    setModalNote('');
-    openModal({ type: 'video', url: videoUrl, videoId: videoId });
-  };
+  const closeVideoModal = () => setVideoModalProps(null);
   
-  const openKeyframeModal = (videoId: string) => { 
-    setModalVideoId('');
+  const openKeyframeModal = (video: string) => { 
+    setModalVideoId(video);
     setModalKeyframeId('');
     setModalNote('');
-    openModal({ type: 'keyframes', videoId: videoId }); 
+    setKeyframeModalProps({ videoId: video }); 
   };
+  const closeKeyframeModal = () => setKeyframeModalProps(null);
 
   const handleSearch = async () => {
     setIsLoading(true);
     const filteredQueries = queries.map(q => q.text).filter(q => q.trim() !== '');
-    if (filteredQueries.length === 0) {
+    
+    const hasFilters = keywordFilter() || selectedObjects().length > 0 || selectedPacks().length > 0 || selectedVideos().length > 0 || vietnameseQuery();
+
+    if (filteredQueries.length === 0 && !hasFilters) {
       setResults([]);
       setTemporalResults([]);
       setIsLoading(false);
@@ -134,9 +162,17 @@ const App: Component = () => {
     try {
       const payload = {
         queries: filteredQueries,
-        retriever: retriever(),
-        filters: { keyword: keywordFilter(), object: objectFilter() },
-        top_k_per_query: topKPerQuery()
+        retriever: 'clip',
+        filters: { 
+          keyword: keywordFilter(), 
+          object: selectedObjects().join(','), 
+          packs: selectedPacks(),
+          videos: selectedVideos(),
+          excluded_videos: excludedVideos(),
+          vietnamese_query: vietnameseQuery()
+        },
+        top_k_per_query: topKPerQuery(),
+        top_k: totalResults(),
       };
       const response = await fetch(`${API_BASE_URL}/api/search`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -148,25 +184,24 @@ const App: Component = () => {
       if (isTemporal) {
         const processedTemporal: TemporalQueryResult[] = data.results.map((videoResult: any) => ({
           ...videoResult,
-          video_url: `${API_BASE_URL}/static/video/${videoResult.video_id}.mp4`,
+          video_url: `${API_BASE_URL}/api/video/${videoResult.video}`,
           query_results: videoResult.query_results.map((qr: any) => ({
             ...qr,
             keyframes: qr.keyframes.map((kf: any) => ({
               ...kf,
-              image_url: `${API_BASE_URL}/static/keyframes/${videoResult.video_id}/${kf.keyframe_id}.jpg`,
+              image_url: `${KEYFRAME_BASE_URL}/${videoResult.video}/${kf.frame}?download=true`,
             }))
           }))
         }));
         setTemporalResults(processedTemporal);
         setResults([]);
       } else {
-        const processedResults: SearchResultItem[] = data.results.map((item: { video_id: string; keyframe_id: string; keyframe_index: number; }) => ({
-          video_id: item.video_id,
-          keyframe_id: item.keyframe_id,
-          keyframe_index: item.keyframe_index,
-          image_url: `${API_BASE_URL}/static/keyframes/${item.video_id}/${item.keyframe_id}.jpg`,
-          // This is the NEW, CORRECT line
-          video_url: `${API_BASE_URL}/api/video/${item.video_id}`,
+        const processedResults: SearchResultItem[] = data.results.map((item: { video: string; frame: string; frame_index: number; }) => ({
+          video: item.video,
+          frame: item.frame,
+          frame_index: item.frame_index,
+          image_url: `${KEYFRAME_BASE_URL}/${item.video}/${item.frame}?download=true`,
+          video_url: `${API_BASE_URL}/api/video/${item.video}`,
         }));
         setResults(processedResults || []);
         setTemporalResults([]);
@@ -180,16 +215,16 @@ const App: Component = () => {
     }
   };
 
-  const populateIdFields = (newVideoId: string, newKeyframeIndex: string) => {
-    if (isTemporalMode() && newVideoId === displayVideoId()) {
+  const populateIdFields = (video: string, frame_index: string) => {
+    if (isTemporalMode() && video === displayVideoId()) {
       const currentKeyframes = displayKeyframeId().split(',').filter(Boolean);
       const newKeyframeSet = new Set(currentKeyframes);
-      newKeyframeSet.add(newKeyframeIndex);
+      newKeyframeSet.add(frame_index);
       const sortedKeyframes = Array.from(newKeyframeSet).map(Number).sort((a, b) => a - b);
       setDisplayKeyframeId(sortedKeyframes.join(','));
     } else {
-      setDisplayVideoId(newVideoId);
-      setDisplayKeyframeId(newKeyframeIndex);
+      setDisplayVideoId(video);
+      setDisplayKeyframeId(frame_index);
     }
   };
 
@@ -210,25 +245,30 @@ const App: Component = () => {
     }
   };
 
-  const handleDirectAddToSubmission = (videoId: string, keyframeIndex: number) => {
-    const newLine = `${videoId},${keyframeIndex}`;
+  const handleDirectAddToSubmission = (video: string, frame_index: number) => {
+    const newLine = `${video},${frame_index}`;
     const existingLines = new Set(submissionContent().split('\n').filter(Boolean));
     if (!existingLines.has(newLine)) {
       setSubmissionContent(prevContent => prevContent ? `${prevContent}\n${newLine}` : newLine);
     }
   };
 
-  const handleModalPopulate = (videoId: string, keyframeId: string) => {
-    if (isTemporalMode() && videoId === modalVideoId()) {
+  const handleModalPopulate = (video: string, frame: string) => {
+    if (isTemporalMode() && video === modalVideoId()) {
       const currentKeyframes = modalKeyframeId().split(',').filter(Boolean);
       const newKeyframeSet = new Set(currentKeyframes);
-      newKeyframeSet.add(keyframeId);
+      newKeyframeSet.add(frame);
       const sortedKeyframes = Array.from(newKeyframeSet).map(Number).sort((a, b) => a - b);
       setModalKeyframeId(sortedKeyframes.join(','));
     } else {
-      setModalVideoId(videoId);
-      setModalKeyframeId(keyframeId);
+      setModalVideoId(video);
+      setModalKeyframeId(frame);
     }
+  };
+
+  const populateFromModal = (video: string, frame_index: string) => {
+    populateIdFields(video, frame_index); 
+    handleModalPopulate(video, frame_index);
   };
 
   const handleModalAddToSubmission = () => {
@@ -250,38 +290,39 @@ const App: Component = () => {
     }
   };
 
-  const handleDownloadCsv = () => {
+  const handleSaveCsvToServer = async () => {
     if (!submissionContent()) {
       alert("Submission content is empty.");
       return;
     }
     const filename = submissionFilename() || "submission";
-    const blob = new Blob([submissionContent()], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filename}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/save_submission`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: filename, content: submissionContent() }),
+      });
 
-  const currentModal = () => modalStack().length > 0 ? modalStack()[modalStack().length - 1] : null;
-
-  const modalSize = () => {
-    const type = currentModal()?.type;
-    if (type === 'keyframes') return 'extra-large';
-    if (type === 'video') return 'large';
-    return 'large';
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Submission saved successfully on the server at: ${result.path}`);
+      } else {
+        const errorResult = await response.json();
+        throw new Error(errorResult.detail || 'Failed to save submission');
+      }
+    } catch (error) {
+      console.error("Error saving submission:", error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   const modalFooter = (
     <div class="flex items-center space-x-3 w-full">
       <label class="text-sm font-medium">Video ID:</label>
-      <input type="text" readOnly class="p-1 border rounded text-sm w-32 bg-gray-100" value={modalVideoId()} />
+      <input type="text" class="p-1 border rounded text-sm w-32" value={modalVideoId()} onInput={(e) => setModalVideoId(e.currentTarget.value)} />
       <label class="text-sm font-medium">Keyframe ID:</label>
-      <input type="text" readOnly class="p-1 border rounded text-sm w-24 bg-gray-100" value={modalKeyframeId()} />
+      <input type="text" class="p-1 border rounded text-sm w-24" value={modalKeyframeId()} onInput={(e) => setModalKeyframeId(e.currentTarget.value)} />
       <button
         class="px-3 py-1 text-white text-sm rounded transition-colors"
         classList={{
@@ -293,11 +334,11 @@ const App: Component = () => {
       >
         {isTemporalMode() ? '⏰' : '🔄'}
       </button>
-      <label class="text-sm font-medium">Note:</label>
+      <label class="text-sm font-medium">Answer:</label>
       <input 
         type="text" 
         class="p-1 border rounded text-sm flex-grow"
-        placeholder="Add a note..."
+        placeholder="Add answer..."
         value={modalNote()}
         onInput={(e) => setModalNote(e.currentTarget.value)}
       />
@@ -323,21 +364,28 @@ const App: Component = () => {
           onAddQuery={addQuery}
           onRemoveQuery={removeQuery}
           onUpdateQuery={updateQuery}
-          retriever={retriever}
-          setRetriever={setRetriever}
           topKPerQuery={topKPerQuery}
           setTopKPerQuery={setTopKPerQuery}
           keywordFilter={keywordFilter}
           setKeywordFilter={setKeywordFilter}
-          objectFilter={objectFilter}
-          setObjectFilter={setObjectFilter}
+          vietnameseQuery={vietnameseQuery}
+          setVietnameseQuery={setVietnameseQuery}
+          selectedObjects={selectedObjects}
+          setSelectedObjects={setSelectedObjects}
+          selectedPacks={selectedPacks}
+          setSelectedPacks={setSelectedPacks}
+          selectedVideos={selectedVideos}
+          setSelectedVideos={setSelectedVideos}
+          excludedVideos={excludedVideos}
+          setExcludedVideos={setExcludedVideos}
           onSearch={handleSearch}
           isLoading={isLoading}
           submissionFilename={submissionFilename}
           setSubmissionFilename={setSubmissionFilename}
           submissionContent={submissionContent}
           setSubmissionContent={setSubmissionContent}
-          onDownloadCsv={handleDownloadCsv}
+          onSaveCsv={handleSaveCsvToServer}
+          API_BASE_URL={API_BASE_URL}
         />
       </div>
       <div 
@@ -346,47 +394,74 @@ const App: Component = () => {
       ></div>
       <main class="flex-1 flex flex-col">
         <TopPanel 
-            {...{ 
+            {...{
                 videoId: displayVideoId, setVideoId: setDisplayVideoId, 
                 keyframeId: displayKeyframeId, setKeyframeId: setDisplayKeyframeId, 
                 keyframeNote, setKeyframeNote, 
                 onAddToSubmission: handleAddToSubmission, 
                 onGroup: () => setGroupByVideo(!groupByVideo()), 
                 onGridChange: setGridCols,
-                isTemporalMode, setIsTemporalMode
+                isTemporalMode, setIsTemporalMode,
+                totalResults, setTotalResults
             }} 
         />
         <div class="flex-1 overflow-y-auto p-4">
           <RightPanel 
-            images={results} 
+            images={results}
             temporalResults={temporalResults}
+            excludedVideos={excludedVideos}
             isTemporalResult={isTemporalResult}
             isLoading={isLoading} 
-            onVideoView={openVideoModal} 
+            onVideoView={(_videoUrl, video, _frame, frame_index) => openVideoModal(video, frame_index)} 
             onKeyframeView={openKeyframeModal} 
             onPopulateIdFields={populateIdFields}
             onDirectAddToSubmission={handleDirectAddToSubmission}
             onImageZoom={openImageModal}
+            onExcludeVideo={handleExcludeVideo}
             gridCols={gridCols}
             groupByVideo={groupByVideo}
           />
         </div>
       </main>
-      <Show when={currentModal()}>
+
+      <Show when={keyframeModalProps()}>
         <Modal 
           isOpen={true} 
-          onClose={closeModal}
-          size={modalSize()}
-          footer={(currentModal()?.type === 'keyframes' || currentModal()?.type === 'video') && modalFooter}
+          onClose={closeKeyframeModal}
+          size="extra-large"
+          footer={modalFooter}
         >
-          <Show when={currentModal()?.type === 'video'}><VideoModal
-              videoUrl={currentModal().url}
-              videoId={currentModal().videoId}
-              onSelectFrame={(frameIndex) => handleModalPopulate(currentModal().videoId, frameIndex.toString())}
-            />
-          </Show>
-          <Show when={currentModal()?.type === 'keyframes'}><KeyframeModal videoId={currentModal().videoId} handlers={{ onImageZoom: openImageModal, onDirectAddToSubmission: handleDirectAddToSubmission, onModalPopulate: handleModalPopulate }} /></Show>
-          <Show when={currentModal()?.type === 'image'}><ImageModal imageUrl={currentModal().url} /></Show>
+          <KeyframeModal 
+            video={keyframeModalProps().videoId} 
+            handlers={{ 
+              onImageZoom: openImageModal, 
+              onDirectAddToSubmission: handleDirectAddToSubmission, 
+              onPopulateIdFields: populateFromModal 
+            }} 
+          />
+        </Modal>
+      </Show>
+
+      <Show when={videoModalProps()}>
+        <Modal 
+          isOpen={true} 
+          onClose={closeVideoModal}
+          size="large"
+          footer={modalFooter}
+        >
+          <VideoModal
+            watchUrl={videoModalProps().watchUrl}
+            fps={videoModalProps().fps}
+            videoId={videoModalProps().videoId}
+            keyframeIndex={videoModalProps().keyframeIndex}
+            onSelectFrame={(frameIndex) => handleModalPopulate(videoModalProps().videoId, frameIndex.toString())}
+          />
+        </Modal>
+      </Show>
+
+      <Show when={imageModalUrl()}>
+        <Modal isOpen={true} onClose={closeImageModal} size="large">
+          <ImageModal imageUrl={imageModalUrl()!} />
         </Modal>
       </Show>
     </div>

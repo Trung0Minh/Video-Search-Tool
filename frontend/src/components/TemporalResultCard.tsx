@@ -5,10 +5,10 @@ import ResultCard from './ResultCard';
 interface TemporalResultCardProps {
   result: TemporalQueryResult;
   handlers: {
-    onVideoView: (videoUrl: string, videoId: string, keyframeId: string) => void;
-    onKeyframeView: (videoId: string) => void;
-    onPopulateIdFields: (videoId: string, keyframeIndex: string) => void;
-    onDirectAddToSubmission: (videoId: string, keyframeIndex: number) => void;
+    onVideoView: (videoUrl: string, video: string, frame: string, frame_index: number) => void;
+    onKeyframeView: (video: string) => void;
+    onPopulateIdFields: (video: string, frame_index: string) => void;
+    onDirectAddToSubmission: (video: string, frame_index: number) => void;
     onImageZoom: (imageUrl: string) => void;
   };
   gridCols: Accessor<number>;
@@ -18,7 +18,7 @@ const TemporalResultCard: Component<TemporalResultCardProps> = (props) => {
   return (
     <div class="bg-white border border-gray-200 rounded-lg shadow-md p-4">
       <h2 class="text-xl font-bold text-gray-800 mb-3">
-        Video: {props.result.video_id}
+        Video: {props.result.video}
       </h2>
       <div class="space-y-4">
         <For each={props.result.query_results}>
@@ -34,10 +34,10 @@ const TemporalResultCard: Component<TemporalResultCardProps> = (props) => {
                 <For each={queryResult.keyframes}>
                   {(keyframe) => {
                     const item: SearchResultItem = {
-                      video_id: props.result.video_id,
+                      video: props.result.video,
                       video_url: props.result.video_url,
-                      keyframe_id: keyframe.keyframe_id,
-                      keyframe_index: keyframe.keyframe_index,
+                      frame: keyframe.frame,
+                      frame_index: keyframe.frame_index,
                       image_url: keyframe.image_url,
                     };
                     return <ResultCard item={item} handlers={props.handlers} />;

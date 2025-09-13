@@ -1,13 +1,11 @@
-# File: launch.py (in the project root) - FINAL VERSION
-
 import subprocess
 import time
 import webbrowser
 from pathlib import Path
 import sys
-import requests # Import the requests library
+import requests
 
-def wait_for_backend(url: str, timeout: int = 180):
+def wait_for_backend(url: str, timeout: int = 100):
     """
     Polls the backend health check endpoint until it's ready or times out.
     """

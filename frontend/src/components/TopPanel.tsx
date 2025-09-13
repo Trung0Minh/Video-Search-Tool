@@ -12,28 +12,35 @@ interface TopPanelProps {
   onGridChange: (cols: number) => void;
   isTemporalMode: Accessor<boolean>;
   setIsTemporalMode: Setter<boolean>;
+  totalResults: Accessor<number>;
+  setTotalResults: Setter<number>;
 }
 
 const TopPanel: Component<TopPanelProps> = (props) => {
   return (
     <div class="border-b border-gray-200 bg-white p-3 flex items-center space-x-4">
-      <h1 class="text-xl font-semibold text-gray-800 flex-shrink-0">Video Retrieval</h1>
+      <h1 class="text-xl font-semibold text-gray-800 flex-shrink-0"></h1>
       
       <div class="flex-grow flex items-center space-x-2">
         <label for="display-video-id" class="text-sm font-medium text-gray-700">Video ID:</label>
-        <input type="text" id="display-video-id" class="p-1 border rounded text-sm w-32 bg-gray-100" readOnly value={props.videoId()} />
+        <input type="text" id="display-video-id" class="p-1 border rounded text-sm w-32" value={props.videoId()} onInput={(e) => props.setVideoId(e.currentTarget.value)} />
         <label for="display-keyframe-id" class="text-sm font-medium text-gray-700">Keyframe ID:</label>
-        <input type="text" id="display-keyframe-id" class="p-1 border rounded text-sm w-24 bg-gray-100" readOnly value={props.keyframeId()} />
+        <input type="text" id="display-keyframe-id" class="p-1 border rounded text-sm w-24" value={props.keyframeId()} onInput={(e) => props.setKeyframeId(e.currentTarget.value)} />
         
-        <label for="display-keyframe-note" class="text-sm font-medium text-gray-700">Note:</label>
+        <label for="display-keyframe-note" class="text-sm font-medium text-gray-700">Answer:</label>
         <input
           type="text"
           id="display-keyframe-note"
           class="p-1 border rounded text-sm w-48"
-          placeholder="Add a descriptive note..."
+          placeholder="Add answer..."
           value={props.keyframeNote()}
           onInput={(e) => props.setKeyframeNote(e.currentTarget.value)}
         />
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <label for="total-results" class="text-sm font-medium text-gray-700">Total Results:</label>
+        <input type="number" id="total-results" min="1" max="1000" class="p-1 border rounded text-sm w-24" value={props.totalResults()} onInput={(e) => props.setTotalResults(parseInt(e.currentTarget.value, 10))} />
       </div>
 
       <button

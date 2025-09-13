@@ -1,26 +1,28 @@
-# Decompiled with PyLingual (https://pylingual.io)
-# Internal filename: D:\AIC\video_retrieval_project\backend\app\utils\file_utils.py
-# Bytecode version: 3.11a7e (3495)
-# Source timestamp: 2025-09-08 08:32:38 UTC (1757320358)
-
 import json
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional
+import requests
+from io import StringIO
 
 def load_json(file_path: str) -> Optional[Dict[str, Any]]:
-    """Load JSON file safely."""
+    """Load JSON file safely from URL with custom User-Agent."""
+    headers = {"User-Agent": "Mozilla/5.0"}  # fake browser user-agent
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (IOError, json.JSONDecodeError) as e:
+        response = requests.get(file_path, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, json.JSONDecodeError) as e:
         print(f'Error loading {file_path}: {e}')
         return None
 
 def load_csv(file_path: str) -> Optional[pd.DataFrame]:
     """Load CSV file safely."""
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        return pd.read_csv(file_path)
+        response = requests.get(file_path, headers=headers)
+        response.raise_for_status()
+        return pd.read_csv(StringIO(response.text))
     except Exception as e:
         print(f'Error loading {file_path}: {e}')
 

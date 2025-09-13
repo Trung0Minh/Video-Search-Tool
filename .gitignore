@@ -215,7 +215,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-es_data/
 qdrant_storage_video_retrieval/
 test.ipynb
-
+load_object_mf.py
+submissions/

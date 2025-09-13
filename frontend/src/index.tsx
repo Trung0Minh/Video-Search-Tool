@@ -1,4 +1,4 @@
-import 'solid-js';
+import 'solid-js'; 
 import { render } from 'solid-js/web';
 
 import './index.css';

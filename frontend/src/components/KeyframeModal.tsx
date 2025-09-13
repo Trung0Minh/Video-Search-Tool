@@ -1,11 +1,11 @@
 import { Component, createSignal, onMount, For, Show } from 'solid-js';
 
 interface KeyframeModalProps {
-  videoId: string;
+  video: string;
   handlers: {
     onImageZoom: (imageUrl: string) => void;
-    onDirectAddToSubmission: (videoId: string, keyframeIndex: number) => void;
-    onModalPopulate: (videoId: string, keyframeId: string) => void;
+    onDirectAddToSubmission: (video: string, frame_index: number) => void;
+    onPopulateIdFields: (video: string, frame_index: string) => void;
   }
 }
 
@@ -13,18 +13,19 @@ const KeyframeModal: Component<KeyframeModalProps> = (props) => {
   const [keyframes, setKeyframes] = createSignal<{ id: string; url: string; index: number }[]>([]);
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
+  const KEYFRAME_BASE_URL = "https://huggingface.co/datasets/ChungDat/hcm-aic2025-keyframes/resolve/main";
 
   onMount(async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/video_keyframes/${props.videoId}`);
+      const response = await fetch(`/api/video_keyframes/${props.video}`);
       if (!response.ok) {
         throw new Error('Failed to fetch keyframes for video');
       }
       const data = await response.json();
-      const processedKeyframes = data.keyframes.map((keyframe: { keyframe_id: string; keyframe_index: number; }) => ({
+      const processedKeyframes = data.keyframes.map((keyframe: { keyframe_id: string; frame_index: number; }) => ({
         id: keyframe.keyframe_id,
-        url: `http://localhost:8000/static/keyframes/${props.videoId}/${keyframe.keyframe_id}.jpg`,
-        index: keyframe.keyframe_index,
+        url: `${KEYFRAME_BASE_URL}/${props.video}/${keyframe.keyframe_id}.jpg?download=true`,
+        index: keyframe.frame_index,
       }));
       setKeyframes(processedKeyframes);
     } catch (err) {
@@ -37,7 +38,7 @@ const KeyframeModal: Component<KeyframeModalProps> = (props) => {
 
   return (
     <div class="p-4 h-full">
-      <h3 class="text-lg font-semibold mb-4">Keyframes for Video: {props.videoId}</h3>
+      <h3 class="text-lg font-semibold mb-4">Keyframes for Video: {props.video}</h3>
       <div class="h-full overflow-y-auto">
         <Show when={isLoading()}>
           <div class="text-center text-gray-500">Loading keyframes...</div>
@@ -61,15 +62,15 @@ const KeyframeModal: Component<KeyframeModalProps> = (props) => {
                     <div class="flex flex-row gap-1">
                         <button 
                         class="flex-1 p-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600"
-                        onClick={() => props.handlers.onModalPopulate(props.videoId, keyframe.index.toString())}
+                        onClick={() => props.handlers.onPopulateIdFields(props.video, keyframe.index.toString())}
                         >
-                        🔽 Populate
+                        🔽
                         </button>
                         <button 
                         class="flex-1 p-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                        onClick={() => props.handlers.onDirectAddToSubmission(props.videoId, keyframe.index)}
+                        onClick={() => props.handlers.onDirectAddToSubmission(props.video, keyframe.index)}
                         >
-                        ➕ Add
+                        ➕
                         </button>
                     </div>
                   </div>

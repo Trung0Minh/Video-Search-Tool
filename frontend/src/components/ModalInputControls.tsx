@@ -15,11 +15,11 @@ const ModalInputControls: Component<ModalInputControlsProps> = (props) => {
       <input type="text" readOnly class="p-1 border rounded text-sm w-32 bg-gray-100" value={props.modalVideoId} />
       <label class="text-sm font-medium">Keyframe ID:</label>
       <input type="text" readOnly class="p-1 border rounded text-sm w-24 bg-gray-100" value={props.modalKeyframeId} />
-      <label class="text-sm font-medium">Note:</label>
+      <label class="text-sm font-medium">Answer:</label>
       <input
         type="text"
         class="p-1 border rounded text-sm flex-grow"
-        placeholder="Add a note..."
+        placeholder="Add answer..."
         value={props.modalNote}
         onInput={(e) => props.setModalNote(e.currentTarget.value)}
       />

@@ -1,8 +1,3 @@
-# Decompiled with PyLingual (https://pylingual.io)
-# Internal filename: d:\AIC\video_retrieval_project\utils\text_processing.py
-# Bytecode version: 3.11a7e (3495)
-# Source timestamp: 2025-08-24 13:39:03 UTC (1756042743)
-
 import re
 from typing import List, Set
 import unicodedata
